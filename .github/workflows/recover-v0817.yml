@@ -1,0 +1,35 @@
+name: Recover OS Prime v0.8.17 source
+
+on:
+  push:
+    branches: [recover-v0817]
+    paths:
+      - '.github/workflows/recover-v0817.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unpack published v0.8.17 package
+        shell: bash
+        run: |
+          rm -rf recovered_v0817 /tmp/osprime-v0817
+          mkdir -p recovered_v0817 /tmp/osprime-v0817
+          unzip -q releases/OS_PRIME_v0_8_17_LICENCIAMENTO.zip -d /tmp/osprime-v0817
+          cp -a /tmp/osprime-v0817/OS_PRIME_v0_8_17/. recovered_v0817/
+
+      - name: Commit recovered source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add recovered_v0817
+          git diff --cached --quiet && exit 0
+          git commit -m "Recover OS Prime v0.8.17 source"
+          git push origin recover-v0817
