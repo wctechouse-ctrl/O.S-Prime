@@ -1,0 +1,56 @@
+name: Build and publish O.S Prime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'release-trigger/v1.0.0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      CI: '1'
+      PRIME_LICENSE_MODE: production
+      TAG: v1.0.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Inno Setup 6
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+
+      - name: Extract v1.0.0 source
+        shell: powershell
+        run: Expand-Archive -LiteralPath 'releases/OS_PRIME_v1_0_0_FINAL_SOURCE.zip' -DestinationPath 'build-src' -Force
+
+      - name: Build final installer
+        shell: cmd
+        working-directory: build-src\osprime_v1_final
+        run: call GERAR_INSTALADOR_PRODUCAO_FINAL.bat
+
+      - name: Publish GitHub Release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $setup = 'build-src/osprime_v1_final/instalador_pronto/OSPrime_1.0.0_Setup.exe'
+          $sha = 'build-src/osprime_v1_final/instalador_pronto/SHA256_OSPrime_1.0.0.txt'
+          $manifest = 'build-src/osprime_v1_final/instalador_pronto/release_manifest.json'
+          if (-not (Test-Path $setup)) { throw "Instalador final não encontrado: $setup" }
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:TAG $setup $sha $manifest 'releases/OS_PRIME_v1_0_0_FINAL_SOURCE.zip' --target $env:GITHUB_SHA --title 'O.S Prime v1.0.0' --notes-file RELEASE_NOTES.md --latest
+          } else {
+            gh release upload $env:TAG $setup $sha $manifest 'releases/OS_PRIME_v1_0_0_FINAL_SOURCE.zip' --clobber
+          }
